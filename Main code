@@ -249,7 +249,22 @@ def handle_enemy_hit(arrows, enemy_list):
                    
     for arrow in arrows_to_remove:
         arrows.remove(arrow)
- 
+
+def handle_archer_hit(arrows, archer_list):
+    arrows_to_remove = []  # Lista strzał do usunięcia
+    for arrow in arrows:
+        for archer in archer_list:
+            if arrow[0] < archer[0] + enemy_size and arrow[0] + arrow_size > archer[0] and \
+               arrow[1] < archer[1] + enemy_size and arrow[1] + arrow_size > archer[1]:
+                archer[2] -= 1  # Odejmujemy zdrowie łucznika
+                arrows_to_remove.append(arrow)  # Dodajemy strzał do listy do usunięcia
+
+                if archer[2] <= 0:
+                    archer_list.remove(archer)
+
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+
 def archer_shoot(archer_list, player_pos, archer_arrows):
     for archer in archer_list:
         archer_direction = [player_pos[0] - archer[0], player_pos[1] - archer[1]]
@@ -454,6 +469,7 @@ while True:
         draw_arrows(screen, arrow_list)
         draw_arrows(screen, archer_arrows)
         handle_enemy_hit(arrow_list, enemy_list)
+        handle_archer_hit(arrow_list, archer_list)
         handle_enemy_hit(archer_arrows, enemy_list)
  
         player_coins = handle_coin_pickup(player_pos, coin_list, player_coins)
