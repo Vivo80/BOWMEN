@@ -1,0 +1,511 @@
+import pygame
+import sys
+import random
+ 
+pygame.init()
+ 
+# Ustawienia ekranu
+fullscreen = False
+screen_width = 1280
+screen_height = 720
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("BOWMEN")
+ 
+# Kolory
+white = (255, 255, 255)
+red = (255, 0, 0)
+blue = (0, 0, 255)
+yellow = (255, 255, 0)
+green = (0, 255, 0)
+orange = (255, 165, 0)
+black = (0,0,0)
+ 
+# Gracz
+player_size = 5
+player_pos = [screen_width / 2, screen_height / 2]
+player_speed = 0.3
+player_health = 10
+player_coins = 0
+max_player_health = 10
+health_bar_length = 200
+ 
+# Wrogowie
+enemy_size = 5
+enemy_count = 10
+enemy_speed = 0.2
+enemy_list = []
+ 
+# Łucznik
+archer_size = 5
+archer_count = 4
+archer_speed = 0.2
+archer_list = []
+archer_arrows = []  # Nowa lista przechowująca strzały łuczników
+ 
+for _ in range(enemy_count):
+    x = random.randrange(0, screen_width - enemy_size)
+    y = random.randrange(0, screen_height - enemy_size)
+    enemy_list.append([x, y, 4])  # Dodanie hp przeciwnika
+   
+for _ in range(archer_count):
+    x = random.randrange(0, screen_width - archer_size)
+    y = random.randrange(0, screen_height - archer_size)
+    archer_list.append([x, y, 3])  # Dodanie hp łucznika
+ 
+# Apteczka
+healthkit_size = 5
+healthkit_count = 2
+healthkit_list = []
+for _ in range(healthkit_count):
+    x = random.randrange(0, screen_width - healthkit_size)
+    y = random.randrange(0, screen_height - healthkit_size)
+    healthkit_list.append([x, y])
+ 
+# Monety
+coin_size = 5
+coin_count = 5
+coin_list = []
+for _ in range(coin_count):
+    x = random.randrange(0, screen_width - coin_size)
+    y = random.randrange(0, screen_height - coin_size)
+    coin_list.append([x, y])
+ 
+# Strzała
+arrow_list = []  # Lista strzał gracza
+arrow_size = 2
+bow_length = 10
+ 
+#Inne
+initial_enemy_count = 10
+initial_coin_count = 5
+clock = pygame.time.Clock()
+archer_shoot_timer = pygame.time.get_ticks()
+ 
+def draw_player(player_pos):
+    pygame.draw.rect(screen, red, (*player_pos, player_size, player_size))
+ 
+def draw_enemies(enemy_list):
+    for enemy in enemy_list:
+        pygame.draw.rect(screen, blue, (enemy[0], enemy[1], enemy_size, enemy_size))
+ 
+def draw_archers(archer_list):
+    for archer in archer_list:
+        pygame.draw.rect(screen, black, (archer[0], archer[1], archer_size, archer_size))
+       
+def spawn_archers(archer_list, archer_count):
+    for _ in range(archer_count):
+        x = random.randrange(0, screen_width - archer_size)
+        y = random.randrange(0, screen_height - archer_size)
+        archer_list.append([x, y, 3])
+ 
+def draw_health_bar(surface, health):
+    bar_length = int(health / max_player_health * health_bar_length)
+    if bar_length < 0:
+        bar_length = 0
+ 
+    if 0.3 * health <= max_player_health:
+        color = red
+    elif 0.5 * health <= max_player_health:
+        color = orange
+    elif 0.7 * health <= max_player_health:
+        color = yellow
+    else:
+        color = green
+ 
+    pygame.draw.rect(surface, color, (25, 25, bar_length, 25))
+         
+def draw_healthkit_on_screen(healthkit_list):
+    for healthkit in healthkit_list:
+        pygame.draw.rect(screen, orange, (*healthkit, healthkit_size, healthkit_size))
+ 
+def handle_healthkit_pickup(player_pos, healthkit_list, player_health):
+    for healthkit in healthkit_list:
+        if player_pos[0] < healthkit[0] + healthkit_size and player_pos[0] + player_size > healthkit[0] and \
+           player_pos[1] < healthkit[1] + healthkit_size and player_pos[1] + player_size > healthkit[1]:
+            healthkit_list.remove(healthkit)
+            if player_health < max_player_health:
+                player_health = max_player_health
+    return player_health
+ 
+def move_player(keys):
+    global player_pos
+    new_player_pos = player_pos.copy()
+ 
+    if keys[pygame.K_a] and player_pos[0] > 0:
+        new_player_pos[0] -= player_speed
+ 
+    if keys[pygame.K_d] and player_pos[0] < screen_width - player_size:
+        new_player_pos[0] += player_speed
+ 
+    if keys[pygame.K_w] and player_pos[1] > 0:
+        new_player_pos[1] -= player_speed
+ 
+    if keys[pygame.K_s] and player_pos[1] < screen_height - player_size:
+        new_player_pos[1] += player_speed
+ 
+    # Blokada wyjścia gracza poza obszar ekranu
+    new_player_pos[0] = max(0, min(new_player_pos[0], screen_width - player_size))
+    new_player_pos[1] = max(0, min(new_player_pos[1], screen_height - player_size))
+ 
+    player_pos = new_player_pos  # Aktualizacja pozycji gracza
+ 
+ 
+def move_enemy(enemy_list, player_pos):
+    for i in range(len(enemy_list)):
+        enemy = enemy_list[i]
+        for j in range(i + 1, len(enemy_list)):
+            other_enemy = enemy_list[j]
+            if enemy[0] < other_enemy[0] + enemy_size * 3 and enemy[0] + enemy_size * 3 > other_enemy[0] and \
+               enemy[1] < other_enemy[1] + enemy_size * 3 and enemy[1] + enemy_size * 3 > other_enemy[1]:
+                # Jeśli przeciwnicy nachodzą na siebie, przesuń ich w odpowiednie strony
+                if enemy[0] < other_enemy[0]:
+                    enemy[0] -= enemy_speed
+                    other_enemy[0] += enemy_speed
+                else:
+                    enemy[0] += enemy_speed
+                    other_enemy[0] -= enemy_speed
+                if enemy[1] < other_enemy[1]:
+                    enemy[1] -= enemy_speed
+                    other_enemy[1] += enemy_speed
+                else:
+                    enemy[1] += enemy_speed
+                    other_enemy[1] -= enemy_speed
+ 
+    for enemy in enemy_list:
+        if enemy[0] < player_pos[0]:
+            enemy[0] += enemy_speed
+        elif enemy[0] > player_pos[0]:
+            enemy[0] -= enemy_speed
+        if enemy[1] < player_pos[1]:
+            enemy[1] += enemy_speed
+        elif enemy[1] > player_pos[1]:
+            enemy[1] -= enemy_speed
+           
+def move_archers(archer_list, player_pos):
+    for archer in archer_list:
+        if archer[0] < player_pos[0]:
+            archer[0] += archer_speed
+        elif archer[0] > player_pos[0]:
+            archer[0] -= archer_speed
+        if archer[1] < player_pos[1]:
+            archer[1] += archer_speed
+        elif archer[1] > player_pos[1]:
+            archer[1] -= archer_speed
+ 
+def draw_coins(surface, coins):
+    font = pygame.font.SysFont(None, 36)
+    text = font.render(f"Coins: {coins}", True, yellow)
+    surface.blit(text, (screen_width - 120, 25))
+ 
+def draw_coins_on_screen(coin_list):
+    for coin in coin_list:
+        pygame.draw.rect(screen, yellow, (*coin, coin_size, coin_size))
+       
+def handle_coin_pickup(player_pos, coin_list, player_coins):
+    for coin in coin_list:
+        if player_pos[0] < coin[0] + coin_size and player_pos[0] + player_size > coin[0] and \
+           player_pos[1] < coin[1] + coin_size and player_pos[1] + player_size > coin[1]:
+            coin_list.remove(coin)
+            player_coins += 1
+    return player_coins
+ 
+def handle_collision(player_pos, enemy_list, player_health):
+    for enemy in enemy_list:
+        if player_pos[0] < enemy[0] + enemy_size and \
+           player_pos[0] + player_size > enemy[0] and \
+           player_pos[1] < enemy[1] + enemy_size and \
+           player_pos[1] + player_size > enemy[1]:
+            # Odpychanie gracza i przeciwnika
+            if player_pos[0] < enemy[0]:
+                player_pos[0] -= 5
+                enemy[0] += 5
+                player_health -= 1  # Odejmowanie zdrowia gracza
+            else:
+                player_pos[0] += 5
+                enemy[0] -= 5
+                player_health -= 1  # Odejmowanie zdrowia gracza
+            if player_pos[1] < enemy[1]:
+                player_pos[1] -= 5
+                enemy[1] += 5
+                player_health -= 1  # Odejmowanie zdrowia gracza
+            else:
+                player_pos[1] += 5
+                enemy[1] -= 5
+                player_health -= 1  # Odejmowanie zdrowia gracza
+    return player_health
+ 
+# Funkcja obsługująca trafienie przeciwnika strzałą
+def handle_enemy_hit(arrows, enemy_list):
+    arrows_to_remove = []  # Tworzymy listę, aby przechować strzały do usunięcia
+    for arrow in arrows:
+        for enemy in enemy_list:
+            if arrow[0] < enemy[0] + enemy_size and arrow[0] + arrow_size > enemy[0] and \
+               arrow[1] < enemy[1] + enemy_size and arrow[1] + arrow_size > enemy[1]:
+                enemy[2] -= 1  # Odejmujemy zdrowie przeciwnika
+                arrows_to_remove.append(arrow)  # Dodajemy strzał do listy do usunięcia
+ 
+                if enemy[2] <= 0:
+                    enemy_list.remove(enemy)
+                   
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+ 
+def archer_shoot(archer_list, player_pos, archer_arrows):
+    for archer in archer_list:
+        archer_direction = [player_pos[0] - archer[0], player_pos[1] - archer[1]]
+        archer_length = (archer_direction[0] ** 2 + archer_direction[1] ** 2) ** 0.5
+        archer_direction = [archer_direction[0] / archer_length, archer_direction[1] / archer_length]
+        archer_end = [archer[0] + bow_length * archer_direction[0], archer[1] + bow_length * archer_direction[1]]
+        archer_arrows.append([archer[0], archer[1], archer_end[0], archer_end[1], archer_direction[0], archer_direction[1]])
+ 
+# Funkcja rysująca strzały
+def draw_arrows(surface, arrows):
+    for arrow in arrows:
+        pygame.draw.line(surface, red, (arrow[0], arrow[1]), (arrow[2], arrow[3]), arrow_size)
+ 
+# Funkcja poruszająca strzały
+def move_arrows(arrows):
+    for arrow in arrows:
+        arrow[0] += arrow[4]  # Przesunięcie strzały wzdłuż osi X
+        arrow[2] += arrow[4]  # Przesunięcie strzały wzdłuż osi X
+        arrow[1] += arrow[5]  # Przesunięcie strzały wzdłuż osi Y
+        arrow[3] += arrow[5]  # Przesunięcie strzały wzdłuż osi Y
+ 
+def move_archer_arrows(archer_arrows):
+    for arrow in archer_arrows:
+        arrow[0] += arrow[4] * 2  # Przesunięcie strzały wzdłuż osi X
+        arrow[2] += arrow[4] * 2  # Przesunięcie strzały wzdłuż osi X
+        arrow[1] += arrow[5] * 2  # Przesunięcie strzały wzdłuż osi Y
+        arrow[3] += arrow[5] * 2  # Przesunięcie strzały wzdłuż osi Y
+ 
+        # Sprawdzenie kolizji strzały łucznika z przeciwnikami
+        for enemy in enemy_list:
+            if arrow[0] < enemy[0] + enemy_size and arrow[0] + arrow_size > enemy[0] and \
+               arrow[1] < enemy[1] + enemy_size and arrow[1] + arrow_size > enemy[1]:
+                archer_arrows.remove(arrow)
+       
+def draw_start_screen():
+    screen.fill(white)
+    font = pygame.font.SysFont(None, 50)
+ 
+    button_play = font.render("Graj", True, black)
+    button_controls = font.render("Sterowanie", True, black)
+    button_exit = font.render("Wyjdź", True, black)
+ 
+    play_rect = button_play.get_rect(center=(screen_width // 2, screen_height // 3))
+    controls_rect = button_controls.get_rect(center=(screen_width // 2, screen_height // 2))
+    exit_rect = button_exit.get_rect(center=(screen_width // 2, (screen_height // 3) * 2))
+ 
+    screen.blit(button_play, play_rect)
+    screen.blit(button_controls, controls_rect)
+    screen.blit(button_exit, exit_rect)
+ 
+    return play_rect, controls_rect, exit_rect
+       
+def draw_controls_screen():
+    screen.fill(white)
+    font = pygame.font.SysFont(None, 50)
+ 
+    controls_text = font.render("Sterowanie:", True, black)
+    controls_movement = font.render("Ruch: WSAD", True, black)
+    controls_shoot = font.render("Strzelanie: Lewy przycisk myszki", True, black)
+    controls_back = font.render("Powrót", True, black)
+ 
+    button_back = controls_back.get_rect (center = (screen_width // 2 - 60, (screen_height // 4) * 2.5))
+   
+    screen.blit(controls_text, (screen_width // 2 - 120, screen_height // 4))
+    screen.blit(controls_movement, (screen_width // 2 - 120, screen_height // 2.5))
+    screen.blit(controls_shoot, (screen_width // 2 - 120, screen_height // 2))
+    screen.blit(controls_back, button_back)
+ 
+    return button_back
+ 
+def restart_game():
+    global player_health, player_coins, enemy_list, coin_list, healthkit_list, arrow_list, current_level
+ 
+    player_health = max_player_health
+    player_coins = 0
+    current_level = 1
+ 
+    # Resetuj przeciwników
+    enemy_list = []
+    for _ in range(initial_enemy_count):
+        x = random.randrange(0, screen_width - enemy_size)
+        y = random.randrange(0, screen_height - enemy_size)
+        enemy_list.append([x, y, 4])
+ 
+    # Resetuj monety
+    coin_list = []
+    for _ in range(initial_coin_count):
+        x = random.randrange(0, screen_width - coin_size)
+        y = random.randrange(0, screen_height - coin_size)
+        coin_list.append([x, y])
+ 
+    # Resetuj apteczki
+    healthkit_list = []
+    for _ in range(healthkit_count):
+        x = random.randrange(0, screen_width - healthkit_size)
+        y = random.randrange(0, screen_height - healthkit_size)
+        healthkit_list.append([x, y])
+ 
+    arrow_list = []
+ 
+def check_level_completion(coin_list, enemy_list):
+    return len(coin_list) == 0 and len(enemy_list) == 0
+ 
+if check_level_completion(coin_list, enemy_list):
+    current_level += 1
+    initial_enemy_count += 5
+    initial_coin_count += 5
+ 
+    enemy_list = []
+    for _ in range(initial_enemy_count):
+        x = random.randrange(0, screen_width - enemy_size)
+        y = random.randrange(0, screen_height - enemy_size)
+        enemy_list.append([x, y, 4])
+ 
+    coin_list = []
+    for _ in range(initial_coin_count):
+        x = random.randrange(0, screen_width - coin_size)
+        y = random.randrange(0, screen_height - coin_size)
+        coin_list.append([x, y])
+ 
+    restart_game()
+ 
+current_level = 1
+ 
+game_started = False
+controls_screen = False
+start_buttons = draw_start_screen()
+ 
+# Funkcja sprawdzająca koniec gry
+def check_game_over(player_health):
+    if player_health <= 0:
+        return True
+    return False
+ 
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mouse_position = pygame.mouse.get_pos()
+            arrow_direction = [mouse_position[0] - player_pos[0], mouse_position[1] - player_pos[1]]
+            arrow_length = (arrow_direction[0] ** 2 + arrow_direction[1] ** 2) ** 0.5
+            arrow_direction = [arrow_direction[0] / arrow_length, arrow_direction[1] / arrow_length]
+            arrow_end = [player_pos[0] + bow_length * arrow_direction[0], player_pos[1] + bow_length * arrow_direction[1]]
+            arrow_list.append([player_pos[0], player_pos[1], arrow_end[0], arrow_end[1], arrow_direction[0], arrow_direction[1]])
+ 
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_TAB:  
+                if screen.get_flags() & pygame.FULLSCREEN:  
+                    pygame.display.set_mode((screen_width, screen_height))  
+                else:
+                    pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)  
+ 
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_a] and player_pos[0] > 0:
+        player_pos[0] -= player_speed
+    if keys[pygame.K_d] and player_pos[0] < screen_width - player_size:
+        player_pos[0] += player_speed
+    if keys[pygame.K_w] and player_pos[1] > 0:
+        player_pos[1] -= player_speed
+    if keys[pygame.K_s] and player_pos[1] < screen_height - player_size:
+        player_pos[1] += player_speed
+ 
+    if not game_started and not controls_screen:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mouse_position = pygame.mouse.get_pos()
+ 
+                if start_buttons[0].collidepoint(mouse_position):
+                    game_started = True
+                    start_buttons = None  # Usunięcie przycisków po rozpoczęciu gry
+                elif start_buttons[1].collidepoint(mouse_position):
+                    controls_screen = True
+                    start_buttons = None  # Usunięcie przycisków po przejściu do ekranu ze sterowaniem
+                elif start_buttons[2].collidepoint(mouse_position):
+                    pygame.quit()
+                    sys.exit()
+ 
+    elif controls_screen:
+        button_back = draw_controls_screen()  # Aktualizujemy wartość button_back z funkcji
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mouse_position = pygame.mouse.get_pos()
+            if button_back.collidepoint(mouse_position):
+                controls_screen = False
+       
+    if game_started:
+        keys = pygame.key.get_pressed()
+        move_player(keys)
+        move_enemy(enemy_list, player_pos)
+        move_archers(archer_list, player_pos)
+        move_arrows(arrow_list)
+        move_archer_arrows(archer_arrows)
+ 
+        screen.fill(white)
+        draw_player(player_pos)
+        draw_enemies(enemy_list)
+        draw_archers(archer_list)
+        draw_health_bar(screen, player_health)
+        draw_coins(screen, player_coins)
+        draw_coins_on_screen(coin_list)
+        draw_healthkit_on_screen(healthkit_list)
+        draw_arrows(screen, arrow_list)
+        draw_arrows(screen, archer_arrows)
+        handle_enemy_hit(arrow_list, enemy_list)
+        handle_enemy_hit(archer_arrows, enemy_list)
+ 
+        player_coins = handle_coin_pickup(player_pos, coin_list, player_coins)
+        player_health = handle_healthkit_pickup(player_pos, healthkit_list, player_health)
+        player_health = handle_collision(player_pos, enemy_list, player_health)
+ 
+        current_time = pygame.time.get_ticks()
+        if current_time - archer_shoot_timer >= 4000:
+            archer_shoot(archer_list, player_pos, archer_arrows)
+            archer_shoot_timer = current_time
+ 
+        if check_game_over(player_health):
+            game_started = False
+            restart_game()
+            start_buttons = draw_start_screen()
+ 
+        if check_level_completion(coin_list, enemy_list) and check_level_completion([], archer_list):
+            current_level += 1
+            enemy_count += 5
+            coin_count += 5
+            archer_count += 4
+ 
+            enemy_list = []
+            for _ in range(enemy_count):
+                x = random.randrange(0, screen_width - enemy_size)
+                y = random.randrange(0, screen_height - enemy_size)
+                enemy_list.append([x, y, 4])
+ 
+            archer_list = []
+            archer_arrows = []
+            spawn_archers(archer_list, archer_count)
+ 
+            coin_list = []
+            for _ in range(coin_count):
+                x = random.randrange(0, screen_width - coin_size)
+                y = random.randrange(0, screen_height - coin_size)
+                coin_list.append([x, y])
+ 
+            restart_game()
+ 
+        clock.tick(160)
+               
+        for coin in coin_list:
+            if player_pos[0] < coin[0] + coin_size and player_pos[0] + player_size > coin[0] and \
+               player_pos[1] < coin[1] + coin_size and player_pos[1] + player_size > coin[1]:
+                coin_list.remove(coin)
+ 
+    if not game_started and not controls_screen:
+        start_buttons = draw_start_screen()
+    elif controls_screen:
+        draw_controls_screen()
+ 
+   
+   
+    pygame.display.update()
