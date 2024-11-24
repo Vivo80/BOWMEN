@@ -998,7 +998,7 @@ def check_for_Boss_spawn():
 
 def check_for_Fire_elemental_spawn():
     global player_coins
-    if player_coins >= 1 and len(Fire_elemental_list) == 0:
+    if player_coins >= 20 and len(Fire_elemental_list) == 0:
         x = random.randrange(0, screen_width - Fire_elemental_size)
         y = random.randrange(0, screen_height - Fire_elemental_size)
         Fire_elemental_list.append([x, y, 30])  # Dodajemy Fire Elementala do listy
