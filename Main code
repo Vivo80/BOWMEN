@@ -1,123 +1,352 @@
-import pygame
+import pygame                                                                                             
 import sys
 import random
- 
+import time
+
+
 pygame.init()
- 
+
+
 # Ustawienia ekranu
 fullscreen = False
-screen_width = 1280
-screen_height = 720
+screen_width = 1360
+screen_height = 685
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("BOWMEN")
- 
 # Kolory
 white = (255, 255, 255)
 red = (255, 0, 0)
+dark_red = (139, 0, 0)
 blue = (0, 0, 255)
 yellow = (255, 255, 0)
+dark_yellow = (250, 250, 0)
 green = (0, 255, 0)
+dark_green = (0,100,0)
 orange = (255, 165, 0)
+gray = (128, 128, 128)
 black = (0,0,0)
- 
+
 # Gracz
 player_size = 5
-player_pos = [screen_width / 2, screen_height / 2]
+player_pos = [screen_width // 2, screen_height // 2]  # Początkowa pozycja graczas
 player_speed = 0.3
 player_health = 10
 player_coins = 0
 max_player_health = 10
 health_bar_length = 200
- 
+
 # Wrogowie
 enemy_size = 5
 enemy_count = 10
-enemy_speed = 0.2
+enemy_speed = 0.25
 enemy_list = []
- 
+
+for _ in range(enemy_count):
+        x = random.randrange(0, screen_width - enemy_size)
+        y = random.randrange(0, screen_height - enemy_size)
+        enemy_list.append([x, y, 5])
+        
 # Łucznik
 archer_size = 5
 archer_count = 4
 archer_speed = 0.2
 archer_list = []
-archer_arrows = []  # Nowa lista przechowująca strzały łuczników
- 
-for _ in range(enemy_count):
-    x = random.randrange(0, screen_width - enemy_size)
-    y = random.randrange(0, screen_height - enemy_size)
-    enemy_list.append([x, y, 4])  # Dodanie hp przeciwnika
-   
+
 for _ in range(archer_count):
-    x = random.randrange(0, screen_width - archer_size)
-    y = random.randrange(0, screen_height - archer_size)
-    archer_list.append([x, y, 3])  # Dodanie hp łucznika
- 
-# Apteczka
+        x = random.randrange(0, screen_width - archer_size)
+        y = random.randrange(0, screen_height - archer_size)
+        archer_list.append([x, y, 4])
+
+# Boss
+Boss_count = 1
+Boss_speed = 0.15
+Boss_size = 35
+Boss_list = []
+Boss_paused = False
+Boss_pause_start_time = 0
+
+# Fire Elemental
+Fire_elemental_count = 1
+Fire_elemental_speed = 0.25
+Fire_elemental_size = 30
+Fire_elemental_list = []
+
+# Apteczka 
 healthkit_size = 5
-healthkit_count = 2
 healthkit_list = []
-for _ in range(healthkit_count):
+
+for _ in range(2):
     x = random.randrange(0, screen_width - healthkit_size)
     y = random.randrange(0, screen_height - healthkit_size)
     healthkit_list.append([x, y])
- 
+
 # Monety
-coin_size = 5
 coin_count = 5
+coin_size = 5
 coin_list = []
+
 for _ in range(coin_count):
     x = random.randrange(0, screen_width - coin_size)
     y = random.randrange(0, screen_height - coin_size)
     coin_list.append([x, y])
- 
-# Strzała
-arrow_list = []  # Lista strzał gracza
-arrow_size = 2
+
+#Strzała
 bow_length = 10
- 
+arrow_size = 2
+aarrow_size = 2
+archer_arrows = []
+arrow_list = []
+arrows=[]
+
+#Kolec 
+spike_list = []
+spike_size = 3
+
+#Skały
+rock_xsize = 20
+rock_size = 20
+Boss_rocks = []
+Big_rock_xsize = 25
+Big_rock_size = 25
+Big_Boss_rocks = []
+rock_spike_list = []
+rock_spike_size = 20
+
+# Kule Ognia
+fire_xsize = 10
+fire_size = 10
+Fire_Balls = []
+fire_ball_speed = 0.5
+fire_ball_health = 1
+last_fire_ball_time = 0  # Ostatni czas wystrzelenia kul ognia
+fire_ball_interval = 1000  # Czas między kolejnymi kulami (ms)
+
+
+#Krzaki
+thornbush_hp = 5
+thornbush_size = 15
+thornbush_list = []
+
+for _ in range(6):
+    x = random.randrange(0, screen_width - thornbush_size)
+    y = random.randrange(0, screen_height - thornbush_size)
+    thornbush_list.append([x, y, thornbush_hp])
+            
+#Stare Krzaki
+old_thornbush_hp = 10
+old_thornbush_size = 30
+old_thornbush_list = []
+
+for _ in range(4):
+    x = random.randrange(0, screen_width - old_thornbush_size)
+    y = random.randrange(0, screen_height - old_thornbush_size)
+    old_thornbush_list.append([x, y, old_thornbush_hp])
+    
 #Inne
+resistance_multiplier = 0
+damage_multiplier = 0
 initial_enemy_count = 10
 initial_coin_count = 5
 clock = pygame.time.Clock()
 archer_shoot_timer = pygame.time.get_ticks()
- 
+Boss_shoot_timer = pygame.time.get_ticks()
+Boss_sshoot_timer = pygame.time.get_ticks()
+Boss_rock_spikes_timer = pygame.time.get_ticks()
+remove_rock_spikes_timer = pygame.time.get_ticks()
+
+music_playing = False
+
+def play_music():
+    pygame.mixer.init()
+    pygame.mixer.music.load('C:/Users/Asus/Python/BOWMEN/Audio/Song.mp4')
+    pygame.mixer.music.set_volume(0.25)  # Ustaw głośność na 50%
+    pygame.mixer.music.play(-1)  # Odtwarzaj muzykę w pętli
+
+def play_Boss_music():
+    pygame.mixer.init()
+    pygame.mixer.music.load('C:/Users/Asus/Python/BOWMEN/Audio/Boss.mp4')
+    pygame.mixer.music.set_volume(0.25)  # Ustaw głośność na 50%
+    pygame.mixer.music.play(-1)  # Odtwarzaj muzykę w pętli
+    
+def stop_music():
+    pygame.mixer.music.stop()
+
+###################################################################################
+###################################################################################
+
+def draw_start_screen():
+    screen.fill(white)
+    font = pygame.font.SysFont(None, 50)
+    
+    button_play = font.render("Graj", True, black)
+    button_controls = font.render("Sterowanie", True, black)
+    button_exit = font.render("Wyjdź", True, black)
+
+    play_rect = button_play.get_rect(center=(screen_width // 2, screen_height // 3))
+    controls_rect = button_controls.get_rect(center=(screen_width // 2, screen_height // 2))
+    exit_rect = button_exit.get_rect(center=(screen_width // 2, (screen_height // 3) * 2))
+
+    screen.blit(button_play, play_rect)
+    screen.blit(button_controls, controls_rect)
+    screen.blit(button_exit, exit_rect)
+
+    return play_rect, controls_rect, exit_rect
+        
+def draw_controls_screen():
+    screen.fill(white)
+    font = pygame.font.SysFont(None, 50)
+
+    controls_text = font.render("Sterowanie:", True, black)
+    controls_movement = font.render("Ruch: WSAD", True, black)
+    controls_shoot = font.render("Strzelanie: Lewy przycisk myszki", True, black)
+    controls_back = font.render("Powrót", True, black)
+
+    button_back = controls_back.get_rect (center = (screen_width // 2 - 60, (screen_height // 4) * 2.5))
+    
+    screen.blit(controls_text, (screen_width // 2 - 120, screen_height // 4))
+    screen.blit(controls_movement, (screen_width // 2 - 120, screen_height // 2.5))
+    screen.blit(controls_shoot, (screen_width // 2 - 120, screen_height // 2))
+    screen.blit(controls_back, button_back) 
+
+    return button_back
+
 def draw_player(player_pos):
     pygame.draw.rect(screen, red, (*player_pos, player_size, player_size))
- 
+
 def draw_enemies(enemy_list):
     for enemy in enemy_list:
         pygame.draw.rect(screen, blue, (enemy[0], enemy[1], enemy_size, enemy_size))
- 
+
 def draw_archers(archer_list):
     for archer in archer_list:
         pygame.draw.rect(screen, black, (archer[0], archer[1], archer_size, archer_size))
-       
-def spawn_archers(archer_list, archer_count):
-    for _ in range(archer_count):
-        x = random.randrange(0, screen_width - archer_size)
-        y = random.randrange(0, screen_height - archer_size)
-        archer_list.append([x, y, 3])
- 
+
+def draw_Boss(Boss_list):
+    for Boss in Boss_list:
+        pygame.draw.rect(screen, black, (Boss[0], Boss[1], Boss_size, Boss_size))
+
+def draw_Fire_elemental(Fire_elemental_list):
+    for Fire in Fire_elemental_list:
+        pygame.draw.rect(screen, red, (Fire[0], Fire[1], Fire_elemental_size, Fire_elemental_size))
+
+def draw_thornbushes(thornbush_list):
+    for thornbush in thornbush_list:
+        pygame.draw.rect(screen, dark_green, (thornbush[0], thornbush[1], thornbush_size, thornbush_size))
+    
+def draw_old_thornbushes(old_thornbush_list):
+    for old_thornbush in old_thornbush_list:
+        pygame.draw.rect(screen, dark_red, (old_thornbush[0], old_thornbush[1], old_thornbush_size, old_thornbush_size))
+
+def draw_arrows(surface, arrows):
+    for arrow in arrows:
+        pygame.draw.line(surface, red, (arrow[0], arrow[1]), (arrow[2], arrow[3]), arrow_size)
+
+def draw_spikes(surface, spikes):
+    for spike in spikes:
+        pygame.draw.line(surface, dark_red, (spike[0], spike[1]), (spike[2], spike[3]), spike_size)
+
+def draw_archer_arrows(surface, archer_arrows):
+    for aarrow in archer_arrows:
+        pygame.draw.line(surface, green, (aarrow[0], aarrow[1]), (aarrow[2], aarrow[3]), aarrow_size)
+
+def draw_Boss_rocks(surface, Boss_rocks):
+    for rock in Boss_rocks:
+        pygame.draw.line(surface, gray, (rock[0], rock[1]), (rock[2], rock[3]), rock_size)
+        
+def draw_Boss_rocks(surface, Big_Boss_rocks):
+    for big_rock in Big_Boss_rocks:
+        pygame.draw.line(surface, gray, (big_rock[0], big_rock[1]), (big_rock[2], big_rock[3]), Big_rock_size)
+
+def draw_Boss_rock_spikes(rock_spike_list):
+    for rock_spike in rock_spike_list:
+        pygame.draw.rect(screen, gray, (rock_spike[0], rock_spike[1], rock_spike_size, rock_spike_size))
+
+def draw_Fire_ball(surface, Fire_balls):
+    for F_ball in Fire_balls:
+        pygame.draw.circle(surface, orange, (int(F_ball[0]), int(F_ball[1])), fire_size)
+
 def draw_health_bar(surface, health):
     bar_length = int(health / max_player_health * health_bar_length)
     if bar_length < 0:
         bar_length = 0
- 
-    if 0.3 * health <= max_player_health:
+
+    # Zmiana koloru w zależności od procentowego zdrowia
+    if health / max_player_health <= 0.3:
         color = red
-    elif 0.5 * health <= max_player_health:
+    elif health / max_player_health <= 0.5:
         color = orange
-    elif 0.7 * health <= max_player_health:
+    elif health / max_player_health <= 0.7:
         color = yellow
     else:
         color = green
- 
+
     pygame.draw.rect(surface, color, (25, 25, bar_length, 25))
          
 def draw_healthkit_on_screen(healthkit_list):
     for healthkit in healthkit_list:
         pygame.draw.rect(screen, orange, (*healthkit, healthkit_size, healthkit_size))
- 
+
+def draw_coins(surface, coins):
+    font = pygame.font.SysFont(None, 36)
+    text = font.render(f"Coins: {coins}", True, dark_yellow)
+    surface.blit(text, (screen_width - 140, 25))
+
+def draw_coins_on_screen(coin_list):
+    for coin in coin_list:
+        pygame.draw.rect(screen, dark_yellow, (*coin, coin_size, coin_size))
+
+###################################################################################
+###################################################################################
+
+def spawn_enemy(enemy_list, enemy_count):
+    for _ in range(enemy_count):
+        x = random.randrange(0, screen_width - enemy_size)
+        y = random.randrange(0, screen_height - enemy_size)
+        enemy_list.append([x, y, 5])
+
+def spawn_archers(archer_list, archer_count):
+    for _ in range(archer_count):
+        x = random.randrange(0, screen_width - archer_size)
+        y = random.randrange(0, screen_height - archer_size)
+        archer_list.append([x, y, 4])
+        
+def spawn_thornbushes(thornbush_list, thornbush_size, thornbush_hp):
+    for _ in range(6):
+        x = random.randrange(0, screen_width - thornbush_size)
+        y = random.randrange(0, screen_height - thornbush_size)
+        thornbush_list.append([x, y, thornbush_hp])
+            
+def spawn_old_thornbushes(old_thornbush_list, old_thornbush_size, old_thornbush_hp):
+    for _ in range(4):
+        x = random.randrange(0, screen_width - old_thornbush_size)
+        y = random.randrange(0, screen_height - old_thornbush_size)
+        old_thornbush_list.append([x, y, old_thornbush_hp])
+
+def spawn_healthkit(healthkit_list, healthkit_size):
+    for _ in range(2):
+        x = random.randrange(0, screen_width - healthkit_size)
+        y = random.randrange(0, screen_height - healthkit_size)
+        healthkit_list.append([x, y])       
+
+def spawn_coin(coin_list, coin_size, coin_count):
+    for _ in range(coin_count):
+        x = random.randrange(0, screen_width - coin_size)
+        y = random.randrange(0, screen_height - coin_size)
+        coin_list.append([x, y])        
+
+def spawn_fire_balls(Fire_elemental_list, Fire_Balls):
+    global last_fire_ball_time
+    current_time = pygame.time.get_ticks()
+
+    if current_time - last_fire_ball_time >= fire_ball_interval:
+        for Fire in Fire_elemental_list:
+            fire_ball = [Fire[0], Fire[1], fire_ball_health]
+            Fire_Balls.append(fire_ball)
+        last_fire_ball_time = current_time
+        
+###################################################################################     
+###################################################################################    
+    
 def handle_healthkit_pickup(player_pos, healthkit_list, player_health):
     for healthkit in healthkit_list:
         if player_pos[0] < healthkit[0] + healthkit_size and player_pos[0] + player_size > healthkit[0] and \
@@ -126,30 +355,445 @@ def handle_healthkit_pickup(player_pos, healthkit_list, player_health):
             if player_health < max_player_health:
                 player_health = max_player_health
     return player_health
- 
+
+def handle_coin_pickup(player_pos, coin_list, player_coins):
+    for coin in coin_list:
+        if player_pos[0] < coin[0] + coin_size and player_pos[0] + player_size > coin[0] and \
+           player_pos[1] < coin[1] + coin_size and player_pos[1] + player_size > coin[1]:
+            coin_list.remove(coin)
+            player_coins += 1
+    return player_coins
+
+###################################################################################
+###################################################################################
+
+def handle_collision(player_pos, enemy_list, player_health):
+    for enemy in enemy_list:
+        if player_pos[0] < enemy[0] + enemy_size and \
+           player_pos[0] + player_size > enemy[0] and \
+           player_pos[1] < enemy[1] + enemy_size and \
+           player_pos[1] + player_size > enemy[1]:
+            # Odpychanie gracza i przeciwnika
+            if player_pos[0] < enemy[0]:
+                player_pos[0] -= 5
+                enemy[0] += 5
+            else:
+                player_pos[0] += 5
+                enemy[0] -= 5 
+            if player_pos[1] < enemy[1]:
+                player_pos[1] -= 5
+                enemy[1] += 5  
+            else:
+                player_pos[1] += 5
+                enemy[1] -= 5
+            player_health -= 1 - resistance_multiplier 
+            
+    return player_health
+
+def handle_Boss_collision(player_pos, Boss_list, player_health):
+    for Boss in Boss_list:
+        if player_pos[0] < Boss[0] + Boss_size and \
+           player_pos[0] + player_size > Boss[0] and \
+           player_pos[1] < Boss[1] + Boss_size and \
+           player_pos[1] + player_size > Boss[1]:
+            # Odpychanie gracza i przeciwnika
+            if player_pos[0] < Boss[0]:
+                player_pos[0] -= 10
+                Boss[0] += 1
+            else:
+                player_pos[0] += 10
+                Boss[0] -= 1
+
+            if player_pos[1] < Boss[1]:
+                player_pos[1] -= 10
+                Boss[1] += 1
+            else:
+                player_pos[1] += 10
+                Boss[1] -= 1
+            player_health -= 3.5 - resistance_multiplier
+            
+    return player_health
+
+def handle_Fire_elemental_collision(player_pos, Fire_elemental_list, player_health):
+    for Fire in Fire_elemental_list:
+        if player_pos[0] < Fire[0] + Fire_elemental_size and \
+           player_pos[0] + player_size > Fire[0] and \
+           player_pos[1] < Fire[1] + Fire_elemental_size and \
+           player_pos[1] + player_size > Fire[1]:
+            # Odpychanie gracza
+            if player_pos[0] < Fire[0]:
+                player_pos[0] -= 10
+                Fire[0] += 1
+            else:
+                player_pos[0] += 10
+                Fire[0] -= 1
+
+            if player_pos[1] < Fire[1]:
+                player_pos[1] -= 10
+                Fire[1] += 1
+            else:
+                player_pos[1] += 10
+                Fire[1] -= 1
+            player_health -= 4 - resistance_multiplier
+            
+    return player_health
+
+def handle_thornbush_collision(player_pos, thornbush_list, player_health):
+    for thornbush in thornbush_list:
+        if player_pos[0] < thornbush[0] + thornbush_size and \
+           player_pos[0] + player_size > thornbush[0] and \
+           player_pos[1] < thornbush[1] + thornbush_size and \
+           player_pos[1] + player_size > thornbush[1]:
+            if player_pos[0] < thornbush[0]:
+                player_pos[0] -= 5
+                player_health -= 1
+            else:
+                player_pos[0] += 5
+                player_health -= 1
+            if player_pos[1] < thornbush[1]:
+                player_pos[1] -= 5
+                player_health -= 1
+            else:
+                player_pos[1] += 5
+                player_health -= 1
+    return player_health
+
+def handle_old_thornbush_collision(player_pos, old_thornbush_list, player_health):
+    for old_thornbush in old_thornbush_list:
+        if player_pos[0] < old_thornbush[0] + old_thornbush_size and \
+           player_pos[0] + player_size > old_thornbush[0] and \
+           player_pos[1] < old_thornbush[1] + old_thornbush_size and \
+           player_pos[1] + player_size > old_thornbush[1]:
+            if player_pos[0] < old_thornbush[0]:
+                player_pos[0] -= 5
+            else:
+                player_pos[0] += 5
+            if player_pos[1] < old_thornbush[1]:
+                player_pos[1] -= 5
+            else:
+                player_pos[1] += 5
+            player_health -= 2
+    return player_health
+
+def handle_rock_spikes_collision(player_pos, rock_spike_list):
+    for rock_spike in rock_spike_list:
+        if rock_spike[0] < player_pos[0] + player_size * 4 and rock_spike[0] + rock_spike_size > player_pos[0] and \
+           rock_spike[1] < player_pos[1] + player_size * 4 and rock_spike[1] + rock_spike_size > player_pos[1]:
+            # Jeśli gracz nachodzi na kamień, przesuń go w odpowiednią stronę
+            if rock_spike[0] < player_pos[0]:
+                player_pos[0] += player_speed
+            else:
+                player_pos[0] -= player_speed
+            if rock_spike[1] < player_pos[1]:
+                player_pos[1] += player_speed
+            else:
+                player_pos[1] -= player_speed
+
+    return player_pos
+
+def check_fire_ball_collision(Fire_balls, player_pos, player_size, player_health):
+    # Sprawdzenie kolizji
+    for ball in Fire_balls:
+        if player_pos[0] < ball[0] + fire_size and player_pos[0] + player_size > ball[0] and \
+           player_pos[1] < ball[1] + fire_size and player_pos[1] + player_size > ball[1]:
+            player_health -= 10  # Odejmowanie zdrowia
+            Fire_balls.remove(ball)  # Usuwamy kulę
+    return player_health
+
+
+###################################################################################
+###################################################################################
+
+def handle_enemy_hit(arrows, enemy_list):
+    arrows_to_remove = []  # Tworzymy listę, aby przechować strzały do usunięcia
+    for arrow in arrows:
+        for enemy in enemy_list:
+            if arrow[0] < enemy[0] + enemy_size and arrow[0] + arrow_size > enemy[0] and \
+               arrow[1] < enemy[1] + enemy_size and arrow[1] + arrow_size > enemy[1]:
+                enemy[2] -= 1 + damage_multiplier  # Odejmujemy zdrowie przeciwnika
+                arrows_to_remove.append(arrow)  # Dodajemy strzał do listy do usunięcia
+
+                if enemy[2] <= 0:
+                    enemy_list.remove(enemy)
+                    
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+
+def handle_archer_hit(arrows, archer_list):
+    arrows_to_remove = []  # Tworzymy listę, aby przechować strzały do usunięcia
+    for arrow in arrows:
+        for archer in archer_list:
+            if arrow[0] < archer[0] + enemy_size and arrow[0] + arrow_size > archer[0] and \
+               arrow[1] < archer[1] + enemy_size and arrow[1] + arrow_size > archer[1]:
+                archer[2] -= 1 + damage_multiplier  # Odejmujemy zdrowie przeciwnika
+                arrows_to_remove.append(arrow)  # Dodajemy strzał do listy do usunięcia
+
+                if archer[2] <= 0:
+                    archer_list.remove(archer)
+                    
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+
+def handle_Boss_hit(arrows, Boss_list):
+    arrows_to_remove = []  # Tworzymy listę, aby przechować strzały do usunięcia
+    for arrow in arrows:
+        for Boss in Boss_list:
+            if arrow[0] < Boss[0] + Boss_size and arrow[0] + arrow_size > Boss[0] and \
+               arrow[1] < Boss[1] + Boss_size and arrow[1] + arrow_size > Boss[1]:
+                Boss[2] -= 1 + damage_multiplier  # Odejmujemy zdrowie przeciwnika
+                arrows_to_remove.append(arrow)  # Dodajemy strzał do listy do usunięcia
+
+                if Boss[2] <= 0:
+                    Boss_list.remove(Boss)
+                    Boss_defeat()
+                    
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+
+def handle_Fire_elemental_hit(arrows, Fire_elemental_list):
+    arrows_to_remove = []  # Tworzymy listę, aby przechować strzały do usunięcia
+    for arrow in arrows:
+        for Fire in Fire_elemental_list:
+            if arrow[0] < Fire[0] + Fire_elemental_size and arrow[0] + arrow_size > Fire[0] and \
+               arrow[1] < Fire[1] + Fire_elemental_size and arrow[1] + arrow_size > Fire[1]:
+                Fire[2] -= 1 + damage_multiplier  # Odejmujemy zdrowie przeciwnika
+                arrows_to_remove.append(arrow)  # Dodajemy strzał do listy do usunięcia
+
+                if Fire[2] <= 0:
+                    Fire_elemental_list.remove(Fire)
+                   ####Boss_defeat()
+                    
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+
+def handle_thornbush_hit(arrows, thornbush_list):
+    arrows_to_remove = []
+    for arrow in arrows:
+        for thornbush in thornbush_list:
+            if arrow[0] < thornbush[0] + thornbush_size and arrow[0] + arrow_size > thornbush[0] and \
+               arrow[1] < thornbush[1] + thornbush_size and arrow[1] + arrow_size > thornbush[1]:
+                thornbush[2] -= 1  # Odejmowanie punktu życia od kolczastego krzaka
+                arrows_to_remove.append(arrow)  # Dodanie strzału do listy do usunięcia
+
+                if thornbush[2] <= 0:
+                    thornbush_list.remove(thornbush)  # Usunięcie krzaka, jeśli ma mniej lub 0 punktów życia
+                    
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+    return arrows
+
+def handle_old_thornbush_hit(arrows, old_thornbush_list):
+    arrows_to_remove = []
+    for arrow in arrows:
+        for old_thornbush in old_thornbush_list:
+            if arrow[0] < old_thornbush[0] + old_thornbush_size and arrow[0] + arrow_size > old_thornbush[0] and \
+               arrow[1] < old_thornbush[1] + old_thornbush_size and arrow[1] + arrow_size > old_thornbush[1]:
+                old_thornbush[2] -= 1  
+                arrows_to_remove.append(arrow)  
+
+                if old_thornbush[2] <= 0:
+                    old_thornbush_list.remove(old_thornbush)  
+                    counterattack(old_thornbush[0], old_thornbush[1])
+                    
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+    return arrows
+
+def handle_rock_spikes_hit(arrows, rock_spike_list):
+    arrows_to_remove = []
+    for arrow in arrows: # Iteracja po kopii listy arrows
+        for rock_spike in rock_spike_list:
+            if (arrow[0] + arrow_size > rock_spike[0] and arrow[0] < rock_spike[0] + rock_spike_size and
+                arrow[1] + arrow_size > rock_spike[1] and arrow[1] < rock_spike[1] + rock_spike_size):
+                
+                arrows_to_remove.append(arrow)
+                
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+    return arrows
+
+def handle_fire_ball_hit(arrows, Fire_Balls):
+    arrows_to_remove = []  # Lista strzał do usunięcia
+    for ball in Fire_Balls[:]:
+        for arrow in arrows:
+            # Sprawdzenie kolizji
+            if arrow[0] < ball[0] + fire_size and arrow[0] + arrow_size > ball[0] and \
+               arrow[1] < ball[1] + fire_size and arrow[1] + arrow_size > ball[1]:
+                Fire_Balls.remove(ball)  
+                arrows_to_remove.append(arrow)  
+                break  
+
+
+    for arrow in arrows_to_remove:
+        if arrow in arrows:
+            arrows.remove(arrow)
+
+
+###################################################################################
+###################################################################################
+
+def archer_shoot(archer_list, player_pos, archer_arrows):
+    for archer in archer_list:
+        archer_direction = [player_pos[0] - archer[0], player_pos[1] - archer[1]]
+        archer_length = (archer_direction[0] ** 2 + archer_direction[1] ** 2) ** 0.5
+        archer_direction = [archer_direction[0] / archer_length, archer_direction[1] / archer_length]
+        archer_end = [archer[0] + bow_length * archer_direction[0], archer[1] + bow_length * archer_direction[1]]
+        archer_arrows.append([archer[0], archer[1], archer_end[0], archer_end[1], archer_direction[0], archer_direction[1]])
+
+def Boss_shoot(Boss_list, player_pos, rock_list):
+    for Boss in Boss_list:
+        Boss_direction = [player_pos[0] - Boss[0], player_pos[1] - Boss[1]]
+        Boss_length = (Boss_direction[0] ** 2 + Boss_direction[1] ** 2) ** 0.5
+        Boss_direction = [Boss_direction[0] / Boss_length, Boss_direction[1] / Boss_length]
+        Boss_end = [Boss[0] + rock_xsize * Boss_direction[0], Boss[1] + rock_xsize * Boss_direction[1]]
+        rock_list.append([Boss[0], Boss[1], Boss_end[0], Boss_end[1], Boss_direction[0], Boss_direction[1]])
+
+def Boss_sshoot(Boss_list, player_pos, big_rock_list):
+    for Boss in Boss_list:
+        Boss_direction = [player_pos[0] - Boss[0], player_pos[1] - Boss[1]]
+        Boss_length = (Boss_direction[0] ** 2 + Boss_direction[1] ** 2) ** 0.5
+        Boss_direction = [Boss_direction[0] / Boss_length, Boss_direction[1] / Boss_length]
+        Boss_end = [Boss[0] + Big_rock_xsize * Boss_direction[0], Boss[1] + Big_rock_xsize * Boss_direction[1]]
+        big_rock_list.append([Boss[0], Boss[1], Boss_end[0], Boss_end[1], Boss_direction[0], Boss_direction[1]])
+
+def Boss_special_attack(Boss_list):
+    for Boss in Boss_list:
+        special_attack(Boss[0], Boss[1])
+
+def remove_rock_spikes(rock_spike_list):
+    for rock_spike in rock_spike_list:
+        rock_spike_list.remove(rock_spike)
+        
+def counterattack(x, y):
+    global spike_list
+    directions = [
+        (1, 0), (-1, 0), (0, 1), (0, -1), 
+        (1, 1), (-1, -1), (1, -1), (-1, 1),
+        (0.75, 0.25), (0.25, 0.75), (-0.75, 0.25), (-0.25, 0.75), (-0.75, -0.25), (-0.25, -0.75), (0.75, -0.25), (0.25, -0.75)
+    ]
+    for direction in directions:
+        spike_x = x + direction[0] * spike_size
+        spike_y = y + direction[1] * spike_size
+        spike_list.append([x, y, spike_x, spike_y, direction[0], direction[1]])
+
+def special_attack(x, y):
+    global rock_spike_list
+    directions = [
+        (2, 0), (-2, 0), (0, 2), (0, -2), 
+        (1.5, 1.5), (-1.5, -1.5), (1.5, -1.5), (-1.5, 1.5)
+    ]
+    for direction in directions:
+        rock_spike_x = x + direction[0] * rock_spike_size
+        rock_spike_y = y + direction[1] * rock_spike_size 
+        rock_spike_list.append([rock_spike_x, rock_spike_y, rock_spike_x, rock_spike_y, direction[0], direction[1]])
+
+###################################################################################
+###################################################################################
+
+def handle_Boss_rock_hit(Boss_rocks, player_pos, player_health):
+    rocks_to_remove = []  
+    for rock in Boss_rocks:
+        if player_pos[0] < rock[0] + rock_size and player_pos[0] + player_size > rock[0] and \
+           player_pos[1] < rock[1] + rock_size and player_pos[1] + player_size > rock[1]:
+            rocks_to_remove.append(rock)  
+            player_health -= 6  
+
+    for rock in rocks_to_remove:
+        Boss_rocks.remove(rock)
+
+    return player_health
+
+def handle_Boss_big_rock_hit(Big_Boss_rocks, player_pos, player_health):
+    Big_rocks_to_remove = []  
+    for big_rock in Big_Boss_rocks:
+        if player_pos[0] < big_rock[0] + Big_rock_size and player_pos[0] + player_size > big_rock[0] and \
+           player_pos[1] < big_rock[1] + Big_rock_size and player_pos[1] + player_size > big_rock[1]:
+            Big_rocks_to_remove.append(big_rock)  
+            player_health -= 9  
+
+    for big_rock in Big_rocks_to_remove:
+        Big_Boss_rocks.remove(big_rock)
+
+    return player_health
+
+def handle_archer_arrow_hit(archer_arrows, player_pos, player_health):
+    aarrows_to_remove = []  # Tworzymy listę, aby przechować strzały do usunięcia
+    for aarrow in archer_arrows:
+        if player_pos[0] < aarrow[0] + aarrow_size and player_pos[0] + player_size > aarrow[0] and \
+           player_pos[1] < aarrow[1] + aarrow_size and player_pos[1] + player_size > aarrow[1]:
+            aarrows_to_remove.append(aarrow)  # Dodajemy strzał do listy do usunięcia
+            player_health -= 1 - resistance_multiplier # Odejmujemy zdrowie gracza
+
+    for aarrow in aarrows_to_remove:
+        archer_arrows.remove(aarrow)
+
+    return player_health
+
+def handle_spikes_hit(spikes, player_pos, player_health):
+    spikes_to_remove = []  
+    for spike in spikes:
+        if player_pos[0] < spike[0] + spike_size and player_pos[0] + player_size > spike[0] and \
+           player_pos[1] < spike[1] + spike_size and player_pos[1] + player_size > spike[1]:
+            spikes_to_remove.append(spike)  
+            player_health -= 5 
+
+        for archer in archer_list:
+                if spike[0] < archer[0] + enemy_size and spike[0] + spike_size > archer[0] and \
+                   spike[1] < archer[1] + enemy_size and spike[1] + spike_size > archer[1]:
+                   archer[2] -= 4  
+                   spikes_to_remove.append(spike) 
+
+                   if archer[2] <= 0:
+                      archer_list.remove(archer)
+
+        for enemy in enemy_list:
+            if spike[0] < enemy[0] + enemy_size and spike[0] + spike_size > enemy[0] and \
+               spike[1] < enemy[1] + enemy_size and spike[1] + spike_size > enemy[1]:
+                enemy[2] -= 5  
+                spikes_to_remove.append(spike) 
+
+                if enemy[2] <= 0:
+                    enemy_list.remove(enemy)
+                    
+        for Boss in Boss_list:
+            if spike[0] < Boss[0] + Boss_size and spike[0] + spike_size > Boss[0] and \
+               spike[1] < Boss[1] + Boss_size and spike[1] + spike_size > Boss[1]:
+                Boss[2] -= 5  
+                spikes_to_remove.append(spike)  
+
+                if Boss[2] <= 0:
+                    Boss_list.remove(Boss) 
+                             
+    for spike in spikes_to_remove:
+        spikes.remove(spike)
+
+    return player_health
+       
+###################################################################################
+###################################################################################
+
 def move_player(keys):
     global player_pos
     new_player_pos = player_pos.copy()
- 
+
     if keys[pygame.K_a] and player_pos[0] > 0:
-        new_player_pos[0] -= player_speed
- 
+        new_player_pos[0] -= player_speed 
+
     if keys[pygame.K_d] and player_pos[0] < screen_width - player_size:
-        new_player_pos[0] += player_speed
- 
+        new_player_pos[0] += player_speed 
+
     if keys[pygame.K_w] and player_pos[1] > 0:
-        new_player_pos[1] -= player_speed
- 
+        new_player_pos[1] -= player_speed 
+
     if keys[pygame.K_s] and player_pos[1] < screen_height - player_size:
         new_player_pos[1] += player_speed
- 
+
     # Blokada wyjścia gracza poza obszar ekranu
     new_player_pos[0] = max(0, min(new_player_pos[0], screen_width - player_size))
     new_player_pos[1] = max(0, min(new_player_pos[1], screen_height - player_size))
- 
+
     player_pos = new_player_pos  # Aktualizacja pozycji gracza
- 
- 
+
 def move_enemy(enemy_list, player_pos):
     for i in range(len(enemy_list)):
         enemy = enemy_list[i]
@@ -170,7 +814,7 @@ def move_enemy(enemy_list, player_pos):
                 else:
                     enemy[1] += enemy_speed
                     other_enemy[1] -= enemy_speed
- 
+
     for enemy in enemy_list:
         if enemy[0] < player_pos[0]:
             enemy[0] += enemy_speed
@@ -180,8 +824,27 @@ def move_enemy(enemy_list, player_pos):
             enemy[1] += enemy_speed
         elif enemy[1] > player_pos[1]:
             enemy[1] -= enemy_speed
-           
+            
 def move_archers(archer_list, player_pos):
+    for i in range(len(archer_list)):
+        archer = archer_list[i]
+        for j in range(i + 1, len(archer_list)):
+            other_archer = archer_list[j]
+            if archer[0] < other_archer[0] + archer_size * 3 and archer[0] + archer_size * 3 > other_archer[0] and \
+               archer[1] < other_archer[1] + archer_size * 3 and archer[1] + archer_size * 3 > other_archer[1]:
+                if archer[0] < other_archer[0]:
+                    archer[0] -= archer_speed
+                    other_archer[0] += archer_speed
+                else:
+                    archer[0] += archer_speed
+                    other_archer[0] -= archer_speed
+                if archer[1] < other_archer[1]:
+                    archer[1] -= archer_speed
+                    other_archer[1] += archer_speed
+                else:
+                    archer[1] += archer_speed
+                    other_archer[1] -= archer_speed
+                
     for archer in archer_list:
         if archer[0] < player_pos[0]:
             archer[0] += archer_speed
@@ -191,234 +854,236 @@ def move_archers(archer_list, player_pos):
             archer[1] += archer_speed
         elif archer[1] > player_pos[1]:
             archer[1] -= archer_speed
- 
-def draw_coins(surface, coins):
-    font = pygame.font.SysFont(None, 36)
-    text = font.render(f"Coins: {coins}", True, yellow)
-    surface.blit(text, (screen_width - 120, 25))
- 
-def draw_coins_on_screen(coin_list):
-    for coin in coin_list:
-        pygame.draw.rect(screen, yellow, (*coin, coin_size, coin_size))
-       
-def handle_coin_pickup(player_pos, coin_list, player_coins):
-    for coin in coin_list:
-        if player_pos[0] < coin[0] + coin_size and player_pos[0] + player_size > coin[0] and \
-           player_pos[1] < coin[1] + coin_size and player_pos[1] + player_size > coin[1]:
-            coin_list.remove(coin)
-            player_coins += 1
-    return player_coins
- 
-def handle_collision(player_pos, enemy_list, player_health):
-    for enemy in enemy_list:
-        if player_pos[0] < enemy[0] + enemy_size and \
-           player_pos[0] + player_size > enemy[0] and \
-           player_pos[1] < enemy[1] + enemy_size and \
-           player_pos[1] + player_size > enemy[1]:
-            # Odpychanie gracza i przeciwnika
-            if player_pos[0] < enemy[0]:
-                player_pos[0] -= 5
-                enemy[0] += 5
-                player_health -= 1  # Odejmowanie zdrowia gracza
-            else:
-                player_pos[0] += 5
-                enemy[0] -= 5
-                player_health -= 1  # Odejmowanie zdrowia gracza
-            if player_pos[1] < enemy[1]:
-                player_pos[1] -= 5
-                enemy[1] += 5
-                player_health -= 1  # Odejmowanie zdrowia gracza
-            else:
-                player_pos[1] += 5
-                enemy[1] -= 5
-                player_health -= 1  # Odejmowanie zdrowia gracza
-    return player_health
- 
-# Funkcja obsługująca trafienie przeciwnika strzałą
-def handle_enemy_hit(arrows, enemy_list):
-    arrows_to_remove = []  # Tworzymy listę, aby przechować strzały do usunięcia
-    for arrow in arrows:
-        for enemy in enemy_list:
-            if arrow[0] < enemy[0] + enemy_size and arrow[0] + arrow_size > enemy[0] and \
-               arrow[1] < enemy[1] + enemy_size and arrow[1] + arrow_size > enemy[1]:
-                enemy[2] -= 1  # Odejmujemy zdrowie przeciwnika
-                arrows_to_remove.append(arrow)  # Dodajemy strzał do listy do usunięcia
- 
-                if enemy[2] <= 0:
-                    enemy_list.remove(enemy)
-                   
-    for arrow in arrows_to_remove:
-        arrows.remove(arrow)
 
-def handle_archer_hit(arrows, archer_list):
-    arrows_to_remove = []  # Lista strzał do usunięcia
-    for arrow in arrows:
-        for archer in archer_list:
-            if arrow[0] < archer[0] + enemy_size and arrow[0] + arrow_size > archer[0] and \
-               arrow[1] < archer[1] + enemy_size and arrow[1] + arrow_size > archer[1]:
-                archer[2] -= 1  # Odejmujemy zdrowie łucznika
-                arrows_to_remove.append(arrow)  # Dodajemy strzał do listy do usunięcia
+def move_Boss(Boss_list, player_pos):
+    if not Boss_paused:
+        for Boss in Boss_list:
+            if Boss[0] < player_pos[0]:
+                Boss[0] += Boss_speed
+            elif Boss[0] > player_pos[0]:
+                Boss[0] -= Boss_speed
+            if Boss[1] < player_pos[1]:
+                Boss[1] += Boss_speed
+            elif Boss[1] > player_pos[1]:
+                Boss[1] -= Boss_speed
 
-                if archer[2] <= 0:
-                    archer_list.remove(archer)
+def move_Fire_elemental(Fire_elemental_list, player_pos):
+    if not Boss_paused:
+        for Fire in Fire_elemental_list:
+            if Fire[0] < player_pos[0]:
+                Fire[0] += Boss_speed
+            elif Fire[0] > player_pos[0]:
+                Fire[0] -= Boss_speed
+            if Fire[1] < player_pos[1]:
+                Fire[1] += Boss_speed
+            elif Fire[1] > player_pos[1]:
+                Fire[1] -= Boss_speed
 
-    for arrow in arrows_to_remove:
-        arrows.remove(arrow)
-
-def archer_shoot(archer_list, player_pos, archer_arrows):
-    for archer in archer_list:
-        archer_direction = [player_pos[0] - archer[0], player_pos[1] - archer[1]]
-        archer_length = (archer_direction[0] ** 2 + archer_direction[1] ** 2) ** 0.5
-        archer_direction = [archer_direction[0] / archer_length, archer_direction[1] / archer_length]
-        archer_end = [archer[0] + bow_length * archer_direction[0], archer[1] + bow_length * archer_direction[1]]
-        archer_arrows.append([archer[0], archer[1], archer_end[0], archer_end[1], archer_direction[0], archer_direction[1]])
- 
-# Funkcja rysująca strzały
-def draw_arrows(surface, arrows):
-    for arrow in arrows:
-        pygame.draw.line(surface, red, (arrow[0], arrow[1]), (arrow[2], arrow[3]), arrow_size)
- 
-# Funkcja poruszająca strzały
 def move_arrows(arrows):
     for arrow in arrows:
         arrow[0] += arrow[4]  # Przesunięcie strzały wzdłuż osi X
         arrow[2] += arrow[4]  # Przesunięcie strzały wzdłuż osi X
         arrow[1] += arrow[5]  # Przesunięcie strzały wzdłuż osi Y
         arrow[3] += arrow[5]  # Przesunięcie strzały wzdłuż osi Y
- 
+
+def move_spikes(spike_list):
+    for spike in spike_list:
+        spike[0] += spike[4] * 2
+        spike[2] += spike[4] * 2
+        spike[1] += spike[5] * 2
+        spike[3] += spike[5] * 2
+        
 def move_archer_arrows(archer_arrows):
     for arrow in archer_arrows:
-        arrow[0] += arrow[4] * 2  # Przesunięcie strzały wzdłuż osi X
-        arrow[2] += arrow[4] * 2  # Przesunięcie strzały wzdłuż osi X
-        arrow[1] += arrow[5] * 2  # Przesunięcie strzały wzdłuż osi Y
-        arrow[3] += arrow[5] * 2  # Przesunięcie strzały wzdłuż osi Y
- 
-        # Sprawdzenie kolizji strzały łucznika z przeciwnikami
-        for enemy in enemy_list:
-            if arrow[0] < enemy[0] + enemy_size and arrow[0] + arrow_size > enemy[0] and \
-               arrow[1] < enemy[1] + enemy_size and arrow[1] + arrow_size > enemy[1]:
-                archer_arrows.remove(arrow)
-       
-def draw_start_screen():
-    screen.fill(white)
-    font = pygame.font.SysFont(None, 50)
- 
-    button_play = font.render("Graj", True, black)
-    button_controls = font.render("Sterowanie", True, black)
-    button_exit = font.render("Wyjdź", True, black)
- 
-    play_rect = button_play.get_rect(center=(screen_width // 2, screen_height // 3))
-    controls_rect = button_controls.get_rect(center=(screen_width // 2, screen_height // 2))
-    exit_rect = button_exit.get_rect(center=(screen_width // 2, (screen_height // 3) * 2))
- 
-    screen.blit(button_play, play_rect)
-    screen.blit(button_controls, controls_rect)
-    screen.blit(button_exit, exit_rect)
- 
-    return play_rect, controls_rect, exit_rect
-       
-def draw_controls_screen():
-    screen.fill(white)
-    font = pygame.font.SysFont(None, 50)
- 
-    controls_text = font.render("Sterowanie:", True, black)
-    controls_movement = font.render("Ruch: WSAD", True, black)
-    controls_shoot = font.render("Strzelanie: Lewy przycisk myszki", True, black)
-    controls_back = font.render("Powrót", True, black)
- 
-    button_back = controls_back.get_rect (center = (screen_width // 2 - 60, (screen_height // 4) * 2.5))
+        arrow[0] += arrow[4] * 2.5  # Przesunięcie strzały wzdłuż osi X
+        arrow[2] += arrow[4] * 2.5  # Przesunięcie strzały wzdłuż osi X
+        arrow[1] += arrow[5] * 2.5  # Przesunięcie strzały wzdłuż osi Y
+        arrow[3] += arrow[5] * 2.5 # Przesunięcie strzały wzdłuż osi Y
+
+def move_rocks(Boss_rocks):
+    for rock in Boss_rocks:
+        rock[0] += rock[4] * 2
+        rock[2] += rock[4] * 2
+        rock[1] += rock[5] * 2
+        rock[3] += rock[5] * 2
+        
+def move_big_rocks(Big_Boss_rocks):
+    for big_rock in Big_Boss_rocks:
+        big_rock[0] += big_rock[4] * 2
+        big_rock[2] += big_rock[4] * 2
+        big_rock[1] += big_rock[5] * 2
+        big_rock[3] += big_rock[5] * 2
+
+def move_fire_balls(Fire_balls, player_pos):
+    for ball in Fire_balls:
+        # Obliczamy kierunek, w którym kula ma podążać za graczem
+        direction = [player_pos[0] - ball[0], player_pos[1] - ball[1]]
+        length = (direction[0] ** 2 + direction[1] ** 2) ** 0.5
+        if length > 0:
+            direction = [direction[0] / length, direction[1] / length]
+
+        # Ruch w kierunku gracza
+        ball[0] += direction[0] * fire_ball_speed
+        ball[1] += direction[1] * fire_ball_speed
+
+###################################################################################
+###################################################################################
    
-    screen.blit(controls_text, (screen_width // 2 - 120, screen_height // 4))
-    screen.blit(controls_movement, (screen_width // 2 - 120, screen_height // 2.5))
-    screen.blit(controls_shoot, (screen_width // 2 - 120, screen_height // 2))
-    screen.blit(controls_back, button_back)
- 
-    return button_back
- 
+def generate_options():
+    options = []
+    if resistance_multiplier <= 0:
+       options.append("Zwiększyć Odporność")
+        
+    if damage_multiplier <= 0:
+        options.append("Zwiększyć Obrażenia")
+    return options
+
+def display_choice_screen():
+    global resistance_multiplier
+    global damage_multiplier
+    
+    choosing = True
+    font = pygame.font.SysFont("comicsansms", 48)
+    current_choice = 1  
+
+    while choosing:
+        options = generate_options()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1 and "Zwiększyć Odporność" in options:
+                    # Zwiększ odporność
+                    resistance_multiplier = 0.5
+                    options.remove("Zwiększyć Odporność")
+                    current_choice = 2  # Po zmianie na odporność, zmień oczekiwanie na 2 (Zwiększ obrażenia)
+                elif event.key == pygame.K_2 and "Zwiększyć Obrażenia" in options:
+                    # Zwiększ obrażenia
+                    damage_multiplier += 1
+                    options.remove("Zwiększyć Obrażenia")
+                    current_choice = 1  # Po zwiększeniu obrażeń, zmień oczekiwanie na 1 (Zwiększ odporność)
+                elif event.key == pygame.K_1 and "Zwiększyć Obrażenia" in options:
+                    # Kiedy opcja Zwiększ obrażenia jest dostępna, można ją odebrać za pomocą klawisza 1
+                    damage_multiplier += 1
+                    options.remove("Zwiększyć Obrażenia")
+                elif event.key == pygame.K_2 and "Zwiększyć Odporność" in options:
+                    # Kiedy opcja Zwiększ odporność jest dostępna, można ją odebrać za pomocą klawisza 2
+                    resistance_multiplier = 0.5
+                    options.remove("Zwiększyć Odporność")
+
+                choosing = False  # Zakończ pętlę wyboru po dokonaniu wyboru
+
+        screen.fill(black)
+        title_text = font.render("Wybierz nagrodę:", True, white)
+        screen.blit(title_text, (screen_width // 2 - title_text.get_width() // 2, screen_height // 2 - 200))
+
+        for i, option in enumerate(options):
+            option_text = font.render(f"Kliknij {i + 1} aby {option}", True, white)
+            screen.blit(option_text, (screen_width // 2 - option_text.get_width() // 2, screen_height // 2 - 100 + i * 60))
+
+        pygame.display.update()
+
+    return current_choice
+
+def check_for_Boss_spawn():
+    global player_coins
+    if player_coins >= 15 and len(Boss_list) == 0 and (damage_multiplier <= 0 or resistance_multiplier <= 0):
+        stop_music()
+        play_Boss_music()
+        x = random.randrange(0, screen_width - Boss_size)
+        y = random.randrange(0, screen_height - Boss_size)
+        Boss_list.append([x, y, 70])
+
+def check_for_Fire_elemental_spawn():
+    global player_coins
+    if player_coins >= 1 and len(Fire_elemental_list) == 0:
+        x = random.randrange(0, screen_width - Fire_elemental_size)
+        y = random.randrange(0, screen_height - Fire_elemental_size)
+        Fire_elemental_list.append([x, y, 30])  # Dodajemy Fire Elementala do listy
+         
+def Boss_defeat():
+    global player_coins
+    display_choice_screen()
+    player_coins -= 15
+    play_music()
+
 def restart_game():
-    global player_health, player_coins, enemy_list, coin_list, healthkit_list, arrow_list, current_level
- 
+    global player_health, enemy_list, archer_list, healthkit_list, coin_list, thornbush_list, old_thornbush_list
     player_health = max_player_health
-    player_coins = 0
-    current_level = 1
- 
-    # Resetuj przeciwników
+    
+    archer_list = []
+    spawn_archers(archer_list, archer_count)
+    
     enemy_list = []
-    for _ in range(initial_enemy_count):
-        x = random.randrange(0, screen_width - enemy_size)
-        y = random.randrange(0, screen_height - enemy_size)
-        enemy_list.append([x, y, 4])
- 
-    # Resetuj monety
-    coin_list = []
-    for _ in range(initial_coin_count):
-        x = random.randrange(0, screen_width - coin_size)
-        y = random.randrange(0, screen_height - coin_size)
-        coin_list.append([x, y])
- 
-    # Resetuj apteczki
+    spawn_enemy(enemy_list, enemy_count)
+        
     healthkit_list = []
-    for _ in range(healthkit_count):
-        x = random.randrange(0, screen_width - healthkit_size)
-        y = random.randrange(0, screen_height - healthkit_size)
-        healthkit_list.append([x, y])
- 
-    arrow_list = []
- 
-def check_level_completion(coin_list, enemy_list):
-    return len(coin_list) == 0 and len(enemy_list) == 0
- 
-if check_level_completion(coin_list, enemy_list):
-    current_level += 1
-    initial_enemy_count += 5
-    initial_coin_count += 5
- 
-    enemy_list = []
-    for _ in range(initial_enemy_count):
-        x = random.randrange(0, screen_width - enemy_size)
-        y = random.randrange(0, screen_height - enemy_size)
-        enemy_list.append([x, y, 4])
- 
+    spawn_healthkit(healthkit_list, healthkit_size)
+                
     coin_list = []
-    for _ in range(initial_coin_count):
-        x = random.randrange(0, screen_width - coin_size)
-        y = random.randrange(0, screen_height - coin_size)
-        coin_list.append([x, y])
+    spawn_coin(coin_list, coin_size, coin_count)
+
+    thornbush_list=[]
+    spawn_thornbushes(thornbush_list, thornbush_size, thornbush_hp)
+            
+    old_thornbush_list = []    
+    spawn_old_thornbushes(old_thornbush_list, old_thornbush_size, old_thornbush_hp)
+
+def check_level_completion(coin_list, enemy_list):
+    return not coin_list and not enemy_list
  
-    restart_game()
- 
-current_level = 1
- 
-game_started = False
-controls_screen = False
-start_buttons = draw_start_screen()
- 
-# Funkcja sprawdzająca koniec gry
 def check_game_over(player_health):
     if player_health <= 0:
         return True
     return False
- 
+   
+current_level = 1   
+game_started = False
+controls_screen = False
+start_buttons = draw_start_screen()
+
+pygame.time.set_timer(pygame.USEREVENT + 3, 10000)
+
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: 
             mouse_position = pygame.mouse.get_pos()
             arrow_direction = [mouse_position[0] - player_pos[0], mouse_position[1] - player_pos[1]]
             arrow_length = (arrow_direction[0] ** 2 + arrow_direction[1] ** 2) ** 0.5
             arrow_direction = [arrow_direction[0] / arrow_length, arrow_direction[1] / arrow_length]
             arrow_end = [player_pos[0] + bow_length * arrow_direction[0], player_pos[1] + bow_length * arrow_direction[1]]
             arrow_list.append([player_pos[0], player_pos[1], arrow_end[0], arrow_end[1], arrow_direction[0], arrow_direction[1]])
- 
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_TAB:  
                 if screen.get_flags() & pygame.FULLSCREEN:  
                     pygame.display.set_mode((screen_width, screen_height))  
                 else:
                     pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)  
- 
+
+        if event.type == pygame.USEREVENT + 3:
+            Boss_paused = True
+            Boss_pause_start_time = pygame.time.get_ticks()
+            pygame.time.set_timer(pygame.USEREVENT + 4, 1200)
+            pygame.time.set_timer(pygame.USEREVENT + 5, 400)  
+            Boss_special_attack(Boss_list)  # Wywołanie specjalnego ataku Bossa
+
+        if event.type == pygame.USEREVENT + 4:
+            Boss_paused = False
+            # Ustawienie timera na 1 sekundę, aby usunąć kamienie pojawiające się w specjalnym ataku
+            
+        if event.type == pygame.USEREVENT + 5:
+            # Usunięcie kamieni po 1 sekundzie od ich pojawienia się
+            remove_rock_spikes(rock_spike_list)
+        
+    check_for_Boss_spawn()
+    check_for_Fire_elemental_spawn()
+    
     keys = pygame.key.get_pressed()
     if keys[pygame.K_a] and player_pos[0] > 0:
         player_pos[0] -= player_speed
@@ -428,100 +1093,149 @@ while True:
         player_pos[1] -= player_speed
     if keys[pygame.K_s] and player_pos[1] < screen_height - player_size:
         player_pos[1] += player_speed
- 
+
     if not game_started and not controls_screen:
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                mouse_position = pygame.mouse.get_pos()
- 
-                if start_buttons[0].collidepoint(mouse_position):
-                    game_started = True
-                    start_buttons = None  # Usunięcie przycisków po rozpoczęciu gry
-                elif start_buttons[1].collidepoint(mouse_position):
-                    controls_screen = True
-                    start_buttons = None  # Usunięcie przycisków po przejściu do ekranu ze sterowaniem
-                elif start_buttons[2].collidepoint(mouse_position):
-                    pygame.quit()
-                    sys.exit()
- 
+        if not music_playing:
+                    play_music()
+                    music_playing = True
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mouse_position = pygame.mouse.get_pos()
+
+            if start_buttons[0].collidepoint(mouse_position):
+                game_started = True
+                start_buttons = None  # Usunięcie przycisków po rozpoczęciu gry
+                
+            elif start_buttons[1].collidepoint(mouse_position):
+                controls_screen = True
+                start_buttons = None  # Usunięcie przycisków po przejściu do ekranu ze sterowaniem
+                
+            elif start_buttons[2].collidepoint(mouse_position):
+                pygame.quit()
+                sys.exit()
+
     elif controls_screen:
         button_back = draw_controls_screen()  # Aktualizujemy wartość button_back z funkcji
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mouse_position = pygame.mouse.get_pos()
             if button_back.collidepoint(mouse_position):
-                controls_screen = False
-       
+                controls_screen = False 
+                start_buttons = draw_start_screen()  # Powrót do ekranu startowego
+                 
     if game_started:
         keys = pygame.key.get_pressed()
         move_player(keys)
         move_enemy(enemy_list, player_pos)
         move_archers(archer_list, player_pos)
+        move_Boss(Boss_list, player_pos)
+        move_Fire_elemental(Fire_elemental_list, player_pos)
         move_arrows(arrow_list)
+        move_spikes(spike_list)
         move_archer_arrows(archer_arrows)
- 
+        move_rocks(Boss_rocks)
+        move_big_rocks(Big_Boss_rocks)
+        move_fire_balls(Fire_Balls, player_pos)
+
         screen.fill(white)
         draw_player(player_pos)
         draw_enemies(enemy_list)
         draw_archers(archer_list)
+        draw_Boss(Boss_list)
+        draw_Boss_rock_spikes(rock_spike_list)
+        draw_Fire_elemental(Fire_elemental_list)
         draw_health_bar(screen, player_health)
         draw_coins(screen, player_coins)
         draw_coins_on_screen(coin_list)
         draw_healthkit_on_screen(healthkit_list)
         draw_arrows(screen, arrow_list)
-        draw_arrows(screen, archer_arrows)
+        draw_spikes(screen, spike_list)
+        draw_archer_arrows(screen, archer_arrows)
+        draw_Boss_rocks(screen, Boss_rocks)
+        draw_Boss_rocks(screen, Big_Boss_rocks)
+        draw_Fire_ball(screen, Fire_Balls)
+        draw_thornbushes(thornbush_list)
+        draw_old_thornbushes(old_thornbush_list)
         handle_enemy_hit(arrow_list, enemy_list)
         handle_archer_hit(arrow_list, archer_list)
-        handle_enemy_hit(archer_arrows, enemy_list)
- 
+        handle_Boss_hit(arrow_list, Boss_list)
+        handle_Fire_elemental_hit(arrow_list, Fire_elemental_list)
+        handle_fire_ball_hit(arrow_list, Fire_Balls)
+        handle_thornbush_hit(arrow_list, thornbush_list)
+        handle_old_thornbush_hit(arrow_list, old_thornbush_list)
+        handle_rock_spikes_hit(arrow_list, rock_spike_list)
+        handle_rock_spikes_collision(player_pos, rock_spike_list)
+        spawn_fire_balls(Fire_elemental_list, Fire_Balls)
+        
+
+
         player_coins = handle_coin_pickup(player_pos, coin_list, player_coins)
         player_health = handle_healthkit_pickup(player_pos, healthkit_list, player_health)
         player_health = handle_collision(player_pos, enemy_list, player_health)
- 
+        player_health = handle_Boss_collision(player_pos, Boss_list, player_health)
+        player_health = handle_Boss_rock_hit(Boss_rocks, player_pos, player_health)
+        player_health = handle_Boss_big_rock_hit(Big_Boss_rocks, player_pos, player_health)
+        player_health = handle_thornbush_collision(player_pos, thornbush_list, player_health)
+        player_health = handle_old_thornbush_collision(player_pos, old_thornbush_list, player_health)
+        player_health = handle_archer_arrow_hit(archer_arrows, player_pos, player_health)
+        player_health = handle_spikes_hit(spike_list, player_pos, player_health)
+        player_health = check_fire_ball_collision(Fire_Balls, player_pos, player_size, player_health)
+
+        
+        arrow_list = handle_thornbush_hit(arrow_list, thornbush_list)
+        
         current_time = pygame.time.get_ticks()
         if current_time - archer_shoot_timer >= 4000:
             archer_shoot(archer_list, player_pos, archer_arrows)
             archer_shoot_timer = current_time
- 
+        
+        if current_time - Boss_shoot_timer >= 4750:
+            Boss_shoot(Boss_list, player_pos, Boss_rocks)
+            Boss_shoot_timer = current_time
+
+        if current_time - Boss_sshoot_timer >= 5000:
+            Boss_sshoot(Boss_list, player_pos, Big_Boss_rocks)
+            Boss_sshoot_timer = current_time
+            
         if check_game_over(player_health):
             game_started = False
+            resistance_multiplier = 0
+            damage_multiplier = 0
+            player_coins = 0
             restart_game()
             start_buttons = draw_start_screen()
- 
+
         if check_level_completion(coin_list, enemy_list) and check_level_completion([], archer_list):
             current_level += 1
-            enemy_count += 5
+            enemy_count += 2
             coin_count += 5
-            archer_count += 4
- 
+            archer_count += 2
+
             enemy_list = []
-            for _ in range(enemy_count):
-                x = random.randrange(0, screen_width - enemy_size)
-                y = random.randrange(0, screen_height - enemy_size)
-                enemy_list.append([x, y, 4])
- 
+            spawn_enemy(enemy_list, enemy_count)
+            
             archer_list = []
             archer_arrows = []
             spawn_archers(archer_list, archer_count)
- 
+
+            healthkit_list = []
+            spawn_healthkit(healthkit_list, healthkit_size)
+                
             coin_list = []
-            for _ in range(coin_count):
-                x = random.randrange(0, screen_width - coin_size)
-                y = random.randrange(0, screen_height - coin_size)
-                coin_list.append([x, y])
+            spawn_coin(coin_list, coin_size, coin_count)
+
+            thornbush_list=[]
+            spawn_thornbushes(thornbush_list, thornbush_size, thornbush_hp)
+            
+            old_thornbush_list = []    
+            spawn_old_thornbushes(old_thornbush_list, old_thornbush_size, old_thornbush_hp)
  
             restart_game()
- 
+
         clock.tick(160)
-               
+                
         for coin in coin_list:
             if player_pos[0] < coin[0] + coin_size and player_pos[0] + player_size > coin[0] and \
                player_pos[1] < coin[1] + coin_size and player_pos[1] + player_size > coin[1]:
                 coin_list.remove(coin)
- 
-    if not game_started and not controls_screen:
-        start_buttons = draw_start_screen()
-    elif controls_screen:
-        draw_controls_screen()
- 
-   
-   
+
+    
     pygame.display.update()
