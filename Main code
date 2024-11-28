@@ -120,7 +120,8 @@ fire_ball_speed = 0.5
 fire_ball_health = 1
 last_fire_ball_time = 0  # Ostatni czas wystrzelenia kul ognia
 fire_ball_interval = 1000  # Czas między kolejnymi kulami (ms)
-
+fire_wall_list = []
+fire_wall_size = 20
 
 #Krzaki
 thornbush_hp = 5
@@ -155,7 +156,6 @@ Boss_rock_spikes_timer = pygame.time.get_ticks()
 remove_rock_spikes_timer = pygame.time.get_ticks()
 
 music_playing = False
-
 def play_music():
     pygame.mixer.init()
     pygame.mixer.music.load('C:/Users/Asus/Python/BOWMEN/Audio/Song.mp4')
@@ -165,8 +165,14 @@ def play_music():
 def play_Boss_music():
     pygame.mixer.init()
     pygame.mixer.music.load('C:/Users/Asus/Python/BOWMEN/Audio/Boss.mp4')
-    pygame.mixer.music.set_volume(0.25)  # Ustaw głośność na 50%
-    pygame.mixer.music.play(-1)  # Odtwarzaj muzykę w pętli
+    pygame.mixer.music.set_volume(0.25)  
+    pygame.mixer.music.play(-1)
+    
+def play_Boss2_music():
+    pygame.mixer.init()
+    pygame.mixer.music.load('C:/Users/Asus/Python/BOWMEN/Audio/Boss2.mp4')
+    pygame.mixer.music.set_volume(0.55)  
+    pygame.mixer.music.play(-1)  
     
 def stop_music():
     pygame.mixer.music.stop()
@@ -265,6 +271,10 @@ def draw_Fire_ball(surface, Fire_balls):
     for F_ball in Fire_balls:
         pygame.draw.circle(surface, orange, (int(F_ball[0]), int(F_ball[1])), fire_size)
 
+def draw_Fire_wall(fire_wall_list):
+    for fire_wall in fire_wall_list:
+        pygame.draw.rect(screen, orange, (fire_wall[0], fire_wall[1], fire_wall_size, fire_wall_size))
+        
 def draw_health_bar(surface, health):
     bar_length = int(health / max_player_health * health_bar_length)
     if bar_length < 0:
@@ -500,6 +510,22 @@ def check_fire_ball_collision(Fire_balls, player_pos, player_size, player_health
             Fire_balls.remove(ball)  # Usuwamy kulę
     return player_health
 
+def handle_fire_wall_collision(player_pos, fire_wall_list, player_health):
+    for fire_wall in fire_wall_list:
+        if player_pos[0] < fire_wall[0] + fire_wall_size and \
+           player_pos[0] + player_size > fire_wall[0] and \
+           player_pos[1] < fire_wall[1] + fire_wall_size and \
+           player_pos[1] + player_size > fire_wall[1]:
+            if player_pos[0] < fire_wall[0]:
+                player_pos[0] -= 5
+            else:
+                player_pos[0] += 5
+            if player_pos[1] < fire_wall[1]:
+                player_pos[1] -= 5
+            else:
+                player_pos[1] += 5
+            player_health -= 10
+    return player_health
 
 ###################################################################################
 ###################################################################################
@@ -561,7 +587,7 @@ def handle_Fire_elemental_hit(arrows, Fire_elemental_list):
 
                 if Fire[2] <= 0:
                     Fire_elemental_list.remove(Fire)
-                   ####Boss_defeat()
+                    Boss2_defeat()
                     
     for arrow in arrows_to_remove:
         arrows.remove(arrow)
@@ -612,6 +638,19 @@ def handle_rock_spikes_hit(arrows, rock_spike_list):
         arrows.remove(arrow)
     return arrows
 
+def handle_rock_spikes_hit(arrows, fire_wall_list):
+    arrows_to_remove = []
+    for arrow in arrows: # Iteracja po kopii listy arrows
+        for fire_wall in fire_wall_list:
+            if (arrow[0] + arrow_size > fire_wall[0] and arrow[0] < fire_wall[0] + fire_wall_size and
+                arrow[1] + arrow_size > fire_wall[1] and arrow[1] < fire_wall[1] + fire_wall_size):
+                
+                arrows_to_remove.append(arrow)
+                
+    for arrow in arrows_to_remove:
+        arrows.remove(arrow)
+    return arrows
+
 def handle_fire_ball_hit(arrows, Fire_Balls):
     arrows_to_remove = []  # Lista strzał do usunięcia
     for ball in Fire_Balls[:]:
@@ -627,7 +666,6 @@ def handle_fire_ball_hit(arrows, Fire_Balls):
     for arrow in arrows_to_remove:
         if arrow in arrows:
             arrows.remove(arrow)
-
 
 ###################################################################################
 ###################################################################################
@@ -663,7 +701,15 @@ def Boss_special_attack(Boss_list):
 def remove_rock_spikes(rock_spike_list):
     for rock_spike in rock_spike_list:
         rock_spike_list.remove(rock_spike)
+
+def Fire_elemental_attack(Fire_elemental_list):
+    for Fire in Fire_elemental_list:
+        fire_wall_attack(Fire[0], Fire[1])
         
+def remove_fire_walls(fire_wall_list):
+    for fire_wall in fire_wall_list:
+        fire_wall_list.remove(fire_wall)
+       
 def counterattack(x, y):
     global spike_list
     directions = [
@@ -686,6 +732,19 @@ def special_attack(x, y):
         rock_spike_x = x + direction[0] * rock_spike_size
         rock_spike_y = y + direction[1] * rock_spike_size 
         rock_spike_list.append([rock_spike_x, rock_spike_y, rock_spike_x, rock_spike_y, direction[0], direction[1]])
+        
+def fire_wall_attack(x, y):
+    global fire_wall_list
+    directions = [
+        (2.0, 0.0), (1.73, 1.0), (1.0, 1.73), (0.0, 2.0), 
+        (-1.0, 1.73), (-1.73, 1.0), (-2.0, 0.0), (-1.73, -1.0), 
+        (-1.0, -1.73), (-0.0, -2.0), (1.0, -1.73), (1.73, -1.0)
+        
+    ]
+    for direction in directions:
+        fire_wall_x = x + direction[0] * fire_wall_size
+        fire_wall_y = y + direction[1] * fire_wall_size 
+        fire_wall_list.append([fire_wall_x, fire_wall_y, fire_wall_x, fire_wall_y, direction[0], direction[1]])
 
 ###################################################################################
 ###################################################################################
@@ -762,7 +821,16 @@ def handle_spikes_hit(spikes, player_pos, player_health):
                 spikes_to_remove.append(spike)  
 
                 if Boss[2] <= 0:
-                    Boss_list.remove(Boss) 
+                    Boss_list.remove(Boss)
+                    
+        for Fire in Fire_elemental_list:
+            if spike[0] < Fire[0] + fire_wall_size and spike[0] + spike_size > Fire[0] and \
+               spike[1] < Fire[1] + fire_wall_size and spike[1] + spike_size > Fire[1]:
+                Fire[2] -= 1  
+                spikes_to_remove.append(spike)  
+
+                if Fire[2] <= 0:
+                    Fire_elemental_list.remove(Fire)  
                              
     for spike in spikes_to_remove:
         spikes.remove(spike)
@@ -989,7 +1057,7 @@ def display_choice_screen():
 
 def check_for_Boss_spawn():
     global player_coins
-    if player_coins >= 15 and len(Boss_list) == 0 and (damage_multiplier <= 0 or resistance_multiplier <= 0):
+    if player_coins >= 2 and len(Boss_list) == 0 and (damage_multiplier <= 0 or resistance_multiplier <= 0):
         stop_music()
         play_Boss_music()
         x = random.randrange(0, screen_width - Boss_size)
@@ -998,19 +1066,26 @@ def check_for_Boss_spawn():
 
 def check_for_Fire_elemental_spawn():
     global player_coins
-    if player_coins >= 20 and len(Fire_elemental_list) == 0:
+    if player_coins >= 1 and len(Fire_elemental_list) == 0:# and len(Boss_list) == 0 and (damage_multiplier > 0 or resistance_multiplier > 0):
+        stop_music()
+        play_Boss2_music()
         x = random.randrange(0, screen_width - Fire_elemental_size)
         y = random.randrange(0, screen_height - Fire_elemental_size)
-        Fire_elemental_list.append([x, y, 30])  # Dodajemy Fire Elementala do listy
+        Fire_elemental_list.append([x, y, 3])  # Dodajemy Fire Elementala do listy
          
 def Boss_defeat():
     global player_coins
     display_choice_screen()
-    player_coins -= 15
+    player_coins -= 0
+    play_music()
+    
+def Boss2_defeat():
+    global player_coins
+    player_coins -= 0
     play_music()
 
 def restart_game():
-    global player_health, enemy_list, archer_list, healthkit_list, coin_list, thornbush_list, old_thornbush_list
+    global player_health, enemy_list, archer_list, healthkit_list, coin_list, thornbush_list, old_thornbush_list, Boss_list, Fire_elemental_list, archer_arrows, fire_wall_list, Fire_Balls, arrow_list
     player_health = max_player_health
     
     archer_list = []
@@ -1030,6 +1105,19 @@ def restart_game():
             
     old_thornbush_list = []    
     spawn_old_thornbushes(old_thornbush_list, old_thornbush_size, old_thornbush_hp)
+    
+    Boss_list = []
+    check_for_Boss_spawn()
+    
+    Fire_elemental_list = []
+    check_for_Fire_elemental_spawn()
+
+    arrow_list = []
+    archer_arrows = []
+    fire_wall_list =[]
+    Fire_Balls = []
+    stop_music()
+    play_music()
 
 def check_level_completion(coin_list, enemy_list):
     return not coin_list and not enemy_list
@@ -1080,6 +1168,21 @@ while True:
         if event.type == pygame.USEREVENT + 5:
             # Usunięcie kamieni po 1 sekundzie od ich pojawienia się
             remove_rock_spikes(rock_spike_list)
+            
+        if event.type == pygame.USEREVENT + 3:
+            Boss_paused = True
+            Boss_pause_start_time = pygame.time.get_ticks()
+            pygame.time.set_timer(pygame.USEREVENT + 6, 1800)
+            pygame.time.set_timer(pygame.USEREVENT + 7, 600)  
+            Fire_elemental_attack(Fire_elemental_list)  # Wywołanie specjalnego ataku Bossa
+
+        if event.type == pygame.USEREVENT + 6:
+            Boss_paused = False
+            # Ustawienie timera na 1 sekundę, aby usunąć kamienie pojawiające się w specjalnym ataku
+            
+        if event.type == pygame.USEREVENT + 7:
+            # Usunięcie kamieni po 1 sekundzie od ich pojawienia się
+            remove_fire_walls(fire_wall_list)
         
     check_for_Boss_spawn()
     check_for_Fire_elemental_spawn()
@@ -1142,6 +1245,7 @@ while True:
         draw_Boss(Boss_list)
         draw_Boss_rock_spikes(rock_spike_list)
         draw_Fire_elemental(Fire_elemental_list)
+        draw_Fire_wall(fire_wall_list)
         draw_health_bar(screen, player_health)
         draw_coins(screen, player_coins)
         draw_coins_on_screen(coin_list)
@@ -1163,6 +1267,8 @@ while True:
         handle_old_thornbush_hit(arrow_list, old_thornbush_list)
         handle_rock_spikes_hit(arrow_list, rock_spike_list)
         handle_rock_spikes_collision(player_pos, rock_spike_list)
+        handle_rock_spikes_hit(arrow_list, fire_wall_list)
+        
         spawn_fire_balls(Fire_elemental_list, Fire_Balls)
         
 
@@ -1178,6 +1284,7 @@ while True:
         player_health = handle_archer_arrow_hit(archer_arrows, player_pos, player_health)
         player_health = handle_spikes_hit(spike_list, player_pos, player_health)
         player_health = check_fire_ball_collision(Fire_Balls, player_pos, player_size, player_health)
+        player_health = handle_fire_wall_collision(player_pos, fire_wall_list, player_health)
 
         
         arrow_list = handle_thornbush_hit(arrow_list, thornbush_list)
@@ -1227,7 +1334,7 @@ while True:
             
             old_thornbush_list = []    
             spawn_old_thornbushes(old_thornbush_list, old_thornbush_size, old_thornbush_hp)
- 
+            
             restart_game()
 
         clock.tick(160)
